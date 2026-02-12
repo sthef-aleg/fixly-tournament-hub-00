@@ -4,11 +4,11 @@ import Layout from "@/components/layout/Layout";
 import TournamentCard from "@/components/tournament/TournamentCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useTournamentStore } from "@/store/tournamentStore";
-import { Search, Plus, Trophy, Zap } from "lucide-react";
+import { useTournaments } from "@/hooks/useTournaments";
+import { Search, Plus, Trophy, Zap, Loader2 } from "lucide-react";
 
 const Index = () => {
-  const { tournaments } = useTournamentStore();
+  const { data: tournaments = [], isLoading } = useTournaments();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredTournaments = tournaments.filter((t) =>
@@ -44,9 +44,6 @@ const Index = () => {
                   Crear Torneo
                 </Button>
               </Link>
-              <Button variant="outline" size="xl" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 w-full sm:w-auto">
-                Ver Demo
-              </Button>
             </div>
           </div>
         </div>
@@ -55,14 +52,13 @@ const Index = () => {
       {/* Tournaments Section */}
       <section className="py-12 md:py-16">
         <div className="container">
-          {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
               <h2 className="font-display text-2xl md:text-3xl font-bold text-foreground">
-                Mis Torneos
+                Torneos
               </h2>
               <p className="text-muted-foreground mt-1">
-                {tournaments.length} {tournaments.length === 1 ? 'torneo' : 'torneos'} creados
+                {tournaments.length} {tournaments.length === 1 ? 'torneo' : 'torneos'}
               </p>
             </div>
 
@@ -85,8 +81,11 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Tournament Grid */}
-          {filteredTournaments.length > 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredTournaments.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredTournaments.map((tournament) => (
                 <TournamentCard key={tournament.id} tournament={tournament} />
@@ -98,7 +97,7 @@ const Index = () => {
                 <Trophy className="h-10 w-10 text-accent" />
               </div>
               <h3 className="font-display text-xl font-bold text-foreground mb-2">
-                No tienes torneos aún
+                No hay torneos aún
               </h3>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                 Crea tu primer torneo y comienza a gestionar fixtures, 
@@ -122,7 +121,7 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      {tournaments.length === 0 && (
+      {tournaments.length === 0 && !isLoading && (
         <section className="py-12 md:py-16 bg-secondary/50">
           <div className="container">
             <div className="grid gap-6 md:grid-cols-3">

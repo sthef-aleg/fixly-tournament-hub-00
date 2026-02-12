@@ -1,25 +1,29 @@
 import { useParams } from "react-router-dom";
 import { useState } from "react";
 import Layout from "@/components/layout/Layout";
-import { useTournamentStore } from "@/store/tournamentStore";
+import { useTournamentDetail, useUpdateMatchScore, computeStandings } from "@/hooks/useTournaments";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
-  Trophy, 
-  Calendar, 
-  Table, 
-  GitBranch, 
-  Lock, 
-  Globe,
-  Check
+  Trophy, Calendar, Table, GitBranch, Lock, Globe, Check, Loader2
 } from "lucide-react";
 
 const TournamentView = () => {
   const { id } = useParams<{ id: string }>();
-  const { getTournament, updateMatchScore, getStandings } = useTournamentStore();
-  const tournament = getTournament(id || "");
+  const { data: tournament, isLoading } = useTournamentDetail(id || "");
+  const updateMatchScore = useUpdateMatchScore();
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   if (!tournament) {
     return (
@@ -33,15 +37,24 @@ const TournamentView = () => {
     );
   }
 
-  const standings = getStandings(tournament.id);
+  const standings = tournament.type === 'league' 
+    ? computeStandings(tournament.teams, tournament.matches)
+    : [];
 
   // Group matches by matchday
-  const matchesByDay = tournament.matches.reduce((acc, match) => {
+  const matchesByDay = tournament.matches.reduce((acc: Record<number, typeof tournament.matches>, match: any) => {
     const day = match.matchday;
     if (!acc[day]) acc[day] = [];
     acc[day].push(match);
     return acc;
   }, {} as Record<number, typeof tournament.matches>);
+
+  // Get zone color for a position
+  const getZoneForPosition = (position: number) => {
+    return tournament.zones?.find(
+      (z: any) => position >= z.start_position && position <= z.end_position
+    );
+  };
 
   return (
     <Layout>
@@ -61,7 +74,7 @@ const TournamentView = () => {
                 <h1 className="font-display text-2xl md:text-3xl font-bold text-primary-foreground">
                   {tournament.name}
                 </h1>
-                {tournament.isPro ? (
+                {tournament.is_pro ? (
                   <Lock className="h-5 w-5 text-accent" />
                 ) : (
                   <Globe className="h-5 w-5 text-primary-foreground/60" />
@@ -88,19 +101,16 @@ const TournamentView = () => {
           <Tabs defaultValue="fixture" className="w-full">
             <TabsList className="w-full justify-start mb-6 bg-secondary p-1 rounded-xl">
               <TabsTrigger value="fixture" className="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-lg">
-                <Calendar className="h-4 w-4" />
-                Fixture
+                <Calendar className="h-4 w-4" /> Fixture
               </TabsTrigger>
               {tournament.type === 'league' && (
                 <TabsTrigger value="standings" className="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-lg">
-                  <Table className="h-4 w-4" />
-                  Posiciones
+                  <Table className="h-4 w-4" /> Posiciones
                 </TabsTrigger>
               )}
               {tournament.type === 'elimination' && (
                 <TabsTrigger value="brackets" className="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-lg">
-                  <GitBranch className="h-4 w-4" />
-                  Llaves
+                  <GitBranch className="h-4 w-4" /> Llaves
                 </TabsTrigger>
               )}
             </TabsList>
@@ -113,13 +123,18 @@ const TournamentView = () => {
                     {tournament.type === 'elimination' ? `Ronda ${day}` : `Fecha ${day}`}
                   </h3>
                   <div className="space-y-3">
-                    {matches.map((match) => (
+                    {(matches as any[]).map((match: any) => (
                       <MatchCard 
                         key={match.id} 
                         match={match} 
-                        tournament={tournament}
+                        teams={tournament.teams}
                         onUpdateScore={(homeScore, awayScore) => 
-                          updateMatchScore(tournament.id, match.id, homeScore, awayScore)
+                          updateMatchScore.mutate({
+                            matchId: match.id,
+                            homeScore,
+                            awayScore,
+                            tournamentId: tournament.id,
+                          })
                         }
                       />
                     ))}
@@ -148,22 +163,44 @@ const TournamentView = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {standings.map((row, index) => (
-                        <tr key={row.teamId} className="hover:bg-secondary/50 transition-colors">
-                          <td className="py-3 px-4 font-semibold">{index + 1}</td>
-                          <td className="py-3 px-4 font-medium">{row.teamName}</td>
-                          <td className="text-center py-3 px-2">{row.played}</td>
-                          <td className="text-center py-3 px-2 text-status-finished">{row.won}</td>
-                          <td className="text-center py-3 px-2">{row.drawn}</td>
-                          <td className="text-center py-3 px-2 text-destructive">{row.lost}</td>
-                          <td className="text-center py-3 px-2">{row.goalsFor}</td>
-                          <td className="text-center py-3 px-2">{row.goalsAgainst}</td>
-                          <td className="text-center py-3 px-2 font-medium">
-                            {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
-                          </td>
-                          <td className="text-center py-3 px-4 font-bold text-accent">{row.points}</td>
-                        </tr>
-                      ))}
+                      {standings.map((row, index) => {
+                        const zone = getZoneForPosition(index + 1);
+                        return (
+                          <tr 
+                            key={row.teamId} 
+                            className="hover:bg-secondary/50 transition-colors"
+                            style={zone ? { 
+                              backgroundColor: `${zone.color}15`,
+                              borderLeft: `4px solid ${zone.color}`,
+                            } : undefined}
+                          >
+                            <td className="py-3 px-4 font-semibold">{index + 1}</td>
+                            <td className="py-3 px-4 font-medium">
+                              <div className="flex items-center gap-2">
+                                {row.teamName}
+                                {zone?.label && (
+                                  <span 
+                                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                    style={{ backgroundColor: `${zone.color}20`, color: zone.color }}
+                                  >
+                                    {zone.label}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="text-center py-3 px-2">{row.played}</td>
+                            <td className="text-center py-3 px-2 text-status-finished">{row.won}</td>
+                            <td className="text-center py-3 px-2">{row.drawn}</td>
+                            <td className="text-center py-3 px-2 text-destructive">{row.lost}</td>
+                            <td className="text-center py-3 px-2">{row.goalsFor}</td>
+                            <td className="text-center py-3 px-2">{row.goalsAgainst}</td>
+                            <td className="text-center py-3 px-2 font-medium">
+                              {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
+                            </td>
+                            <td className="text-center py-3 px-4 font-bold text-accent">{row.points}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -190,17 +227,17 @@ const TournamentView = () => {
 // Match Card Component
 interface MatchCardProps {
   match: any;
-  tournament: any;
+  teams: { id: string; name: string; logo?: string | null }[];
   onUpdateScore: (homeScore: number, awayScore: number) => void;
 }
 
-const MatchCard = ({ match, tournament, onUpdateScore }: MatchCardProps) => {
+const MatchCard = ({ match, teams, onUpdateScore }: MatchCardProps) => {
   const [editing, setEditing] = useState(false);
-  const [homeScore, setHomeScore] = useState(match.homeScore?.toString() || "");
-  const [awayScore, setAwayScore] = useState(match.awayScore?.toString() || "");
+  const [homeScore, setHomeScore] = useState(match.home_score?.toString() || "");
+  const [awayScore, setAwayScore] = useState(match.away_score?.toString() || "");
 
-  const homeTeam = tournament.teams.find((t: any) => t.id === match.homeTeamId);
-  const awayTeam = tournament.teams.find((t: any) => t.id === match.awayTeamId);
+  const homeTeam = teams.find((t) => t.id === match.home_team_id);
+  const awayTeam = teams.find((t) => t.id === match.away_team_id);
 
   const handleSave = () => {
     const home = parseInt(homeScore) || 0;
@@ -209,12 +246,12 @@ const MatchCard = ({ match, tournament, onUpdateScore }: MatchCardProps) => {
     setEditing(false);
   };
 
-  // Skip BYE matches
-  if (!awayTeam || match.awayTeamId === 'bye' || match.homeTeamId === 'bye') {
+  // Skip matches without both teams
+  if (!homeTeam || !awayTeam) {
     return (
       <div className="card-athletic p-4 opacity-60">
         <div className="flex items-center justify-center gap-4">
-          <span className="font-medium">{homeTeam?.name || awayTeam?.name}</span>
+          <span className="font-medium">{homeTeam?.name || awayTeam?.name || 'Por definir'}</span>
           <Badge variant="outline" className="text-xs">Fecha Libre</Badge>
         </div>
       </div>
@@ -224,43 +261,29 @@ const MatchCard = ({ match, tournament, onUpdateScore }: MatchCardProps) => {
   return (
     <div className="card-athletic p-4">
       <div className="flex items-center gap-4">
-        {/* Home Team */}
         <div className="flex-1 text-right">
-          <span className="font-medium">{homeTeam?.name}</span>
+          <span className="font-medium">{homeTeam.name}</span>
         </div>
 
-        {/* Score / Edit */}
         <div className="flex items-center gap-2 min-w-[120px] justify-center">
           {editing ? (
             <>
-              <Input
-                type="number"
-                min="0"
-                value={homeScore}
+              <Input type="number" min="0" value={homeScore}
                 onChange={(e) => setHomeScore(e.target.value)}
-                className="w-12 h-10 text-center font-bold"
-              />
+                className="w-12 h-10 text-center font-bold" />
               <span className="text-muted-foreground">-</span>
-              <Input
-                type="number"
-                min="0"
-                value={awayScore}
+              <Input type="number" min="0" value={awayScore}
                 onChange={(e) => setAwayScore(e.target.value)}
-                className="w-12 h-10 text-center font-bold"
-              />
+                className="w-12 h-10 text-center font-bold" />
               <Button size="icon" variant="action" onClick={handleSave} className="h-10 w-10">
                 <Check className="h-4 w-4" />
               </Button>
             </>
           ) : (
-            <button
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
-            >
+            <button onClick={() => setEditing(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
               {match.status === 'finished' ? (
-                <span className="font-bold text-lg">
-                  {match.homeScore} - {match.awayScore}
-                </span>
+                <span className="font-bold text-lg">{match.home_score} - {match.away_score}</span>
               ) : (
                 <span className="text-muted-foreground text-sm">Cargar resultado</span>
               )}
@@ -268,18 +291,14 @@ const MatchCard = ({ match, tournament, onUpdateScore }: MatchCardProps) => {
           )}
         </div>
 
-        {/* Away Team */}
         <div className="flex-1 text-left">
-          <span className="font-medium">{awayTeam?.name}</span>
+          <span className="font-medium">{awayTeam.name}</span>
         </div>
 
-        {/* Status Badge */}
-        <Badge 
-          className={`text-xs ${
-            match.status === 'finished' ? 'status-finished' : 
-            match.status === 'live' ? 'status-live' : 'status-scheduled'
-          }`}
-        >
+        <Badge className={`text-xs ${
+          match.status === 'finished' ? 'status-finished' : 
+          match.status === 'live' ? 'status-live' : 'status-scheduled'
+        }`}>
           {match.status === 'finished' ? 'Final' : 
            match.status === 'live' ? 'En Vivo' : 'Prog.'}
         </Badge>
