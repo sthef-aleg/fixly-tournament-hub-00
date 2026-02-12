@@ -14,7 +14,218 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      matches: {
+        Row: {
+          away_score: number | null
+          away_team_id: string | null
+          bracket_position: number | null
+          bracket_round: number | null
+          group_name: string | null
+          home_score: number | null
+          home_team_id: string | null
+          id: string
+          matchday: number
+          scheduled_at: string | null
+          status: string
+          tournament_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          away_score?: number | null
+          away_team_id?: string | null
+          bracket_position?: number | null
+          bracket_round?: number | null
+          group_name?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          id?: string
+          matchday?: number
+          scheduled_at?: string | null
+          status?: string
+          tournament_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          away_score?: number | null
+          away_team_id?: string | null
+          bracket_position?: number | null
+          bracket_round?: number | null
+          group_name?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          id?: string
+          matchday?: number
+          scheduled_at?: string | null
+          status?: string
+          tournament_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_away_team_id_fkey"
+            columns: ["away_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_home_team_id_fkey"
+            columns: ["home_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          group_name: string | null
+          id: string
+          logo: string | null
+          name: string
+          tournament_id: string
+        }
+        Insert: {
+          group_name?: string | null
+          id?: string
+          logo?: string | null
+          name: string
+          tournament_id: string
+        }
+        Update: {
+          group_name?: string | null
+          id?: string
+          logo?: string | null
+          name?: string
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_zones: {
+        Row: {
+          color: string
+          end_position: number
+          id: string
+          label: string | null
+          start_position: number
+          tournament_id: string
+        }
+        Insert: {
+          color: string
+          end_position: number
+          id?: string
+          label?: string | null
+          start_position: number
+          tournament_id: string
+        }
+        Update: {
+          color?: string
+          end_position?: number
+          id?: string
+          label?: string | null
+          start_position?: number
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_zones_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_pro: boolean | null
+          logo: string | null
+          mode: string
+          name: string
+          owner_id: string | null
+          promotion_count: number | null
+          relegation_count: number | null
+          sport: string
+          status: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_pro?: boolean | null
+          logo?: string | null
+          mode?: string
+          name: string
+          owner_id?: string | null
+          promotion_count?: number | null
+          relegation_count?: number | null
+          sport: string
+          status?: string
+          type?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_pro?: boolean | null
+          logo?: string | null
+          mode?: string
+          name?: string
+          owner_id?: string | null
+          promotion_count?: number | null
+          relegation_count?: number | null
+          sport?: string
+          status?: string
+          type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
