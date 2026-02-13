@@ -9,8 +9,9 @@ const CreateTournament = () => {
           <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-3">
             Crear Nuevo Torneo
           </h1>
+          <p className="text-accent font-display font-semibold text-sm mb-1">Mundo Exa</p>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Configura tu torneo en 3 simples pasos y genera el fixture automáticamente.
+            Configurá tu torneo en 3 simples pasos y generá el fixture automáticamente.
           </p>
         </div>
 

@@ -65,6 +65,9 @@ const Auth = () => {
               <h1 className="font-display text-2xl font-bold">
                 {isSignUp ? "Crear cuenta" : "Iniciar sesión"}
               </h1>
+              <p className="text-accent font-display font-semibold text-sm tracking-wide">
+                Tercer Tiempo
+              </p>
               <p className="text-muted-foreground text-sm text-center">
                 {isSignUp
                   ? "Registrate para crear y administrar tus torneos"

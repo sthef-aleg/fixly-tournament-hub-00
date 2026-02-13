@@ -161,6 +161,7 @@ export const useCreateTournament = () => {
           tournament_id: tournament.id,
           name: t.name,
           logo: t.logo || null,
+          group_name: t.group?.trim() || null,
         }));
 
       const { data: teams, error: teamsError } = await supabase
@@ -171,23 +172,47 @@ export const useCreateTournament = () => {
       if (teamsError) throw teamsError;
 
       // 3. Generate and create matches
-      const teamRefs = teams!.map((t) => ({ id: t.id, name: t.name }));
-      const fixtureMatches =
-        data.type === "league"
-          ? generateLeagueFixtures(teamRefs, tournament.id)
-          : generateEliminationFixtures(teamRefs, tournament.id);
-
-      const matchesToInsert = fixtureMatches.map((m) => ({
-        tournament_id: m.tournamentId,
-        home_team_id: m.homeTeamId === 'bye' || m.homeTeamId === 'tbd' ? null : m.homeTeamId,
-        away_team_id: m.awayTeamId === 'bye' || m.awayTeamId === 'tbd' ? null : m.awayTeamId,
-        home_score: m.homeScore,
-        away_score: m.awayScore,
-        matchday: m.matchday,
-        status: m.status,
-        bracket_round: m.bracketRound || null,
-        bracket_position: m.bracketPosition ?? null,
-      }));
+      const teamRefs = teams!.map((t) => ({ id: t.id, name: t.name, group_name: t.group_name }));
+      
+      // Check if teams have groups
+      const groupNames = [...new Set(teamRefs.map(t => t.group_name).filter(Boolean))];
+      
+      let matchesToInsert: any[] = [];
+      
+      if (data.type === "league" && groupNames.length > 0) {
+        // Generate per-group fixtures
+        for (const group of groupNames) {
+          const groupTeams = teamRefs.filter(t => t.group_name === group);
+          const groupFixtures = generateLeagueFixtures(groupTeams, tournament.id);
+          matchesToInsert.push(...groupFixtures.map((m) => ({
+            tournament_id: m.tournamentId,
+            home_team_id: m.homeTeamId === 'bye' || m.homeTeamId === 'tbd' ? null : m.homeTeamId,
+            away_team_id: m.awayTeamId === 'bye' || m.awayTeamId === 'tbd' ? null : m.awayTeamId,
+            home_score: m.homeScore,
+            away_score: m.awayScore,
+            matchday: m.matchday,
+            status: m.status,
+            group_name: group,
+          })));
+        }
+      } else {
+        const fixtureMatches =
+          data.type === "league"
+            ? generateLeagueFixtures(teamRefs, tournament.id)
+            : generateEliminationFixtures(teamRefs, tournament.id);
+        
+        matchesToInsert = fixtureMatches.map((m) => ({
+          tournament_id: m.tournamentId,
+          home_team_id: m.homeTeamId === 'bye' || m.homeTeamId === 'tbd' ? null : m.homeTeamId,
+          away_team_id: m.awayTeamId === 'bye' || m.awayTeamId === 'tbd' ? null : m.awayTeamId,
+          home_score: m.homeScore,
+          away_score: m.awayScore,
+          matchday: m.matchday,
+          status: m.status,
+          bracket_round: m.bracketRound || null,
+          bracket_position: m.bracketPosition ?? null,
+        }));
+      }
 
       if (matchesToInsert.length > 0) {
         const { error: matchError } = await supabase
