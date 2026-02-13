@@ -1,19 +1,26 @@
 import { useParams } from "react-router-dom";
 import { useState } from "react";
 import Layout from "@/components/layout/Layout";
-import { useTournamentDetail, useUpdateMatchScore, computeStandings } from "@/hooks/useTournaments";
+import { useTournamentDetail, useUpdateMatchScore, useSaveZones, computeStandings } from "@/hooks/useTournaments";
+import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ZoneConfigurator from "@/components/tournament/ZoneConfigurator";
 import { 
-  Trophy, Calendar, Table, GitBranch, Lock, Globe, Check, Loader2
+  Trophy, Calendar, Table, GitBranch, Lock, Globe, Check, Loader2, Settings
 } from "lucide-react";
 
 const TournamentView = () => {
   const { id } = useParams<{ id: string }>();
   const { data: tournament, isLoading } = useTournamentDetail(id || "");
   const updateMatchScore = useUpdateMatchScore();
+  const saveZones = useSaveZones();
+  const { user } = useAuth();
+  const [showZoneConfig, setShowZoneConfig] = useState(false);
+
+  const isOwner = user && tournament?.owner_id === user.id;
 
   if (isLoading) {
     return (
@@ -91,6 +98,17 @@ const TournamentView = () => {
             <Badge className={`${tournament.status === 'active' ? 'status-live' : 'status-finished'} px-3 py-1`}>
               {tournament.status === 'active' ? 'En Curso' : 'Finalizado'}
             </Badge>
+            {isOwner && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                onClick={() => setShowZoneConfig((v) => !v)}
+                title="Configurar zonas"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         </div>
       </section>
@@ -144,7 +162,18 @@ const TournamentView = () => {
             </TabsContent>
 
             {/* Standings Tab */}
-            <TabsContent value="standings" className="animate-fade-in">
+            <TabsContent value="standings" className="animate-fade-in space-y-6">
+              {/* Zone Configurator */}
+              {showZoneConfig && isOwner && tournament.type === 'league' && (
+                <ZoneConfigurator
+                  zones={tournament.zones || []}
+                  totalTeams={tournament.teams.length}
+                  onSave={async (zones) => {
+                    await saveZones.mutateAsync({ tournamentId: tournament.id, zones });
+                  }}
+                  isSaving={saveZones.isPending}
+                />
+              )}
               <div className="card-athletic overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

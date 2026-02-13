@@ -238,6 +238,40 @@ export const useUpdateMatchScore = () => {
   });
 };
 
+export const useSaveZones = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tournamentId,
+      zones,
+    }: {
+      tournamentId: string;
+      zones: { start_position: number; end_position: number; color: string; label: string }[];
+    }) => {
+      // Delete existing zones
+      const { error: delError } = await supabase
+        .from("tournament_zones")
+        .delete()
+        .eq("tournament_id", tournamentId);
+      if (delError) throw delError;
+
+      // Insert new zones
+      if (zones.length > 0) {
+        const { error: insError } = await supabase
+          .from("tournament_zones")
+          .insert(zones.map((z) => ({ ...z, tournament_id: tournamentId })));
+        if (insError) throw insError;
+      }
+
+      return { tournamentId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["tournament", data.tournamentId] });
+    },
+  });
+};
+
 // Compute standings from tournament data (client-side)
 export const computeStandings = (
   teams: { id: string; name: string; logo?: string | null }[],
