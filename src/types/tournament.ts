@@ -60,5 +60,5 @@ export interface TournamentFormData {
   logo?: string;
   type: TournamentType;
   mode: TournamentMode;
-  teams: { name: string; logo?: string }[];
+  teams: { name: string; logo?: string; group?: string }[];
 }

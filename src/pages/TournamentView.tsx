@@ -19,8 +19,15 @@ const TournamentView = () => {
   const saveZones = useSaveZones();
   const { user } = useAuth();
   const [showZoneConfig, setShowZoneConfig] = useState(false);
+  const [groupFilter, setGroupFilter] = useState<string>("all");
 
   const isOwner = user && tournament?.owner_id === user.id;
+
+  // Extract unique group names
+  const groups = tournament
+    ? [...new Set(tournament.teams.map((t: any) => t.group_name).filter(Boolean))].sort() as string[]
+    : [];
+  const hasGroups = groups.length > 0;
 
   if (isLoading) {
     return (
@@ -48,13 +55,32 @@ const TournamentView = () => {
     ? computeStandings(tournament.teams, tournament.matches)
     : [];
 
-  // Group matches by matchday
-  const matchesByDay = tournament.matches.reduce((acc: Record<number, typeof tournament.matches>, match: any) => {
+  // Per-group standings
+  const standingsByGroup = hasGroups
+    ? Object.fromEntries(
+        groups.map((g) => {
+          const groupTeams = tournament.teams.filter((t: any) => t.group_name === g);
+          const groupTeamIds = new Set(groupTeams.map((t: any) => t.id));
+          const groupMatches = tournament.matches.filter(
+            (m: any) => groupTeamIds.has(m.home_team_id) && groupTeamIds.has(m.away_team_id)
+          );
+          return [g, computeStandings(groupTeams, groupMatches)];
+        })
+      )
+    : {};
+
+  // Filter matches by group
+  const filteredMatches = groupFilter === "all"
+    ? tournament.matches
+    : tournament.matches.filter((m: any) => m.group_name === groupFilter);
+
+  // Group filtered matches by matchday
+  const matchesByDay = filteredMatches.reduce((acc: Record<number, any[]>, match: any) => {
     const day = match.matchday;
     if (!acc[day]) acc[day] = [];
     acc[day].push(match);
     return acc;
-  }, {} as Record<number, typeof tournament.matches>);
+  }, {} as Record<number, any[]>);
 
   // Get zone color for a position
   const getZoneForPosition = (position: number) => {
@@ -135,30 +161,60 @@ const TournamentView = () => {
 
             {/* Fixture Tab */}
             <TabsContent value="fixture" className="space-y-6 animate-fade-in">
-              {Object.entries(matchesByDay).map(([day, matches]) => (
-                <div key={day}>
-                  <h3 className="font-display font-bold text-lg mb-4">
-                    {tournament.type === 'elimination' ? `Ronda ${day}` : `Fecha ${day}`}
-                  </h3>
-                  <div className="space-y-3">
-                    {(matches as any[]).map((match: any) => (
-                      <MatchCard 
-                        key={match.id} 
-                        match={match} 
-                        teams={tournament.teams}
-                        onUpdateScore={(homeScore, awayScore) => 
-                          updateMatchScore.mutate({
-                            matchId: match.id,
-                            homeScore,
-                            awayScore,
-                            tournamentId: tournament.id,
-                          })
-                        }
-                      />
-                    ))}
-                  </div>
+              {/* Group Filter */}
+              {hasGroups && (
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant={groupFilter === "all" ? "default" : "outline"}
+                    onClick={() => setGroupFilter("all")}
+                  >
+                    Todos
+                  </Button>
+                  {groups.map((g) => (
+                    <Button
+                      key={g}
+                      size="sm"
+                      variant={groupFilter === g ? "default" : "outline"}
+                      onClick={() => setGroupFilter(g)}
+                    >
+                      Grupo {g}
+                    </Button>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {Object.keys(matchesByDay).length === 0 ? (
+                <div className="text-center py-12">
+                  <Calendar className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No hay partidos {groupFilter !== "all" ? `en el Grupo ${groupFilter}` : "aún"}.</p>
+                </div>
+              ) : (
+                Object.entries(matchesByDay).map(([day, matches]) => (
+                  <div key={day}>
+                    <h3 className="font-display font-bold text-lg mb-4">
+                      {tournament.type === 'elimination' ? `Ronda ${day}` : `Fecha ${day}`}
+                    </h3>
+                    <div className="space-y-3">
+                      {(matches as any[]).map((match: any) => (
+                        <MatchCard 
+                          key={match.id} 
+                          match={match} 
+                          teams={tournament.teams}
+                          onUpdateScore={(homeScore, awayScore) => 
+                            updateMatchScore.mutate({
+                              matchId: match.id,
+                              homeScore,
+                              awayScore,
+                              tournamentId: tournament.id,
+                            })
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </TabsContent>
 
             {/* Standings Tab */}
@@ -174,66 +230,18 @@ const TournamentView = () => {
                   isSaving={saveZones.isPending}
                 />
               )}
-              <div className="card-athletic overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-secondary">
-                      <tr>
-                        <th className="text-left py-3 px-4 font-semibold">#</th>
-                        <th className="text-left py-3 px-4 font-semibold">Equipo</th>
-                        <th className="text-center py-3 px-2 font-semibold">PJ</th>
-                        <th className="text-center py-3 px-2 font-semibold">PG</th>
-                        <th className="text-center py-3 px-2 font-semibold">PE</th>
-                        <th className="text-center py-3 px-2 font-semibold">PP</th>
-                        <th className="text-center py-3 px-2 font-semibold">GF</th>
-                        <th className="text-center py-3 px-2 font-semibold">GC</th>
-                        <th className="text-center py-3 px-2 font-semibold">Dif</th>
-                        <th className="text-center py-3 px-4 font-semibold text-accent">Pts</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {standings.map((row, index) => {
-                        const zone = getZoneForPosition(index + 1);
-                        return (
-                          <tr 
-                            key={row.teamId} 
-                            className="hover:bg-secondary/50 transition-colors"
-                            style={zone ? { 
-                              backgroundColor: `${zone.color}15`,
-                              borderLeft: `4px solid ${zone.color}`,
-                            } : undefined}
-                          >
-                            <td className="py-3 px-4 font-semibold">{index + 1}</td>
-                            <td className="py-3 px-4 font-medium">
-                              <div className="flex items-center gap-2">
-                                {row.teamName}
-                                {zone?.label && (
-                                  <span 
-                                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                                    style={{ backgroundColor: `${zone.color}20`, color: zone.color }}
-                                  >
-                                    {zone.label}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="text-center py-3 px-2">{row.played}</td>
-                            <td className="text-center py-3 px-2 text-status-finished">{row.won}</td>
-                            <td className="text-center py-3 px-2">{row.drawn}</td>
-                            <td className="text-center py-3 px-2 text-destructive">{row.lost}</td>
-                            <td className="text-center py-3 px-2">{row.goalsFor}</td>
-                            <td className="text-center py-3 px-2">{row.goalsAgainst}</td>
-                            <td className="text-center py-3 px-2 font-medium">
-                              {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
-                            </td>
-                            <td className="text-center py-3 px-4 font-bold text-accent">{row.points}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+
+              {hasGroups ? (
+                // Per-group standings
+                groups.map((groupName) => (
+                  <div key={groupName}>
+                    <h3 className="font-display font-bold text-lg mb-3">Grupo {groupName}</h3>
+                    <StandingsTable rows={standingsByGroup[groupName] || []} getZoneForPosition={getZoneForPosition} />
+                  </div>
+                ))
+              ) : (
+                <StandingsTable rows={standings} getZoneForPosition={getZoneForPosition} />
+              )}
             </TabsContent>
 
             {/* Brackets Tab */}
@@ -252,6 +260,75 @@ const TournamentView = () => {
     </Layout>
   );
 };
+
+// Standings Table Component
+import { StandingsRow } from "@/types/tournament";
+
+const StandingsTable = ({ rows, getZoneForPosition }: { 
+  rows: StandingsRow[]; 
+  getZoneForPosition: (pos: number) => any; 
+}) => (
+  <div className="card-athletic overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-secondary">
+          <tr>
+            <th className="text-left py-3 px-4 font-semibold">#</th>
+            <th className="text-left py-3 px-4 font-semibold">Equipo</th>
+            <th className="text-center py-3 px-2 font-semibold">PJ</th>
+            <th className="text-center py-3 px-2 font-semibold">PG</th>
+            <th className="text-center py-3 px-2 font-semibold">PE</th>
+            <th className="text-center py-3 px-2 font-semibold">PP</th>
+            <th className="text-center py-3 px-2 font-semibold">GF</th>
+            <th className="text-center py-3 px-2 font-semibold">GC</th>
+            <th className="text-center py-3 px-2 font-semibold">Dif</th>
+            <th className="text-center py-3 px-4 font-semibold text-accent">Pts</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {rows.map((row, index) => {
+            const zone = getZoneForPosition(index + 1);
+            return (
+              <tr 
+                key={row.teamId} 
+                className="hover:bg-secondary/50 transition-colors"
+                style={zone ? { 
+                  backgroundColor: `${zone.color}15`,
+                  borderLeft: `4px solid ${zone.color}`,
+                } : undefined}
+              >
+                <td className="py-3 px-4 font-semibold">{index + 1}</td>
+                <td className="py-3 px-4 font-medium">
+                  <div className="flex items-center gap-2">
+                    {row.teamName}
+                    {zone?.label && (
+                      <span 
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                        style={{ backgroundColor: `${zone.color}20`, color: zone.color }}
+                      >
+                        {zone.label}
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="text-center py-3 px-2">{row.played}</td>
+                <td className="text-center py-3 px-2">{row.won}</td>
+                <td className="text-center py-3 px-2">{row.drawn}</td>
+                <td className="text-center py-3 px-2">{row.lost}</td>
+                <td className="text-center py-3 px-2">{row.goalsFor}</td>
+                <td className="text-center py-3 px-2">{row.goalsAgainst}</td>
+                <td className="text-center py-3 px-2 font-medium">
+                  {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
+                </td>
+                <td className="text-center py-3 px-4 font-bold text-accent">{row.points}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 // Match Card Component
 interface MatchCardProps {

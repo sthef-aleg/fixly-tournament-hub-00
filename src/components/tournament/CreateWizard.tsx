@@ -53,6 +53,13 @@ const CreateWizard = () => {
     }));
   };
 
+  const updateTeamGroup = (index: number, group: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      teams: prev.teams.map((team, i) => (i === index ? { ...team, group } : team)),
+    }));
+  };
+
   const isStepValid = () => {
     switch (currentStep) {
       case 1: return formData.name.trim() !== "" && formData.sport.trim() !== "";
@@ -205,14 +212,28 @@ const CreateWizard = () => {
                 <Plus className="h-4 w-4" /> Agregar
               </Button>
             </div>
+            {formData.type === 'league' && (
+              <div className="p-3 rounded-lg bg-secondary/50 text-sm text-muted-foreground">
+                💡 Si tu torneo tiene fase de grupos, asigná un grupo a cada equipo (ej: A, B, C). Dejalo vacío si es todos contra todos.
+              </div>
+            )}
             <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
               {formData.teams.map((team, index) => (
-                <div key={index} className="flex items-center gap-3 animate-fade-in">
+                <div key={index} className="flex items-center gap-2 animate-fade-in">
                   <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-secondary text-muted-foreground font-semibold text-sm flex-shrink-0">
                     {index + 1}
                   </div>
                   <Input placeholder={`Equipo ${index + 1}`} value={team.name}
                     onChange={(e) => updateTeam(index, e.target.value)} className="flex-1" />
+                  {formData.type === 'league' && (
+                    <Input
+                      placeholder="Grupo"
+                      value={team.group || ""}
+                      onChange={(e) => updateTeamGroup(index, e.target.value.toUpperCase())}
+                      className="w-20 text-center"
+                      maxLength={5}
+                    />
+                  )}
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeTeam(index)}
                     disabled={formData.teams.length <= 2}
                     className="text-muted-foreground hover:text-destructive flex-shrink-0">

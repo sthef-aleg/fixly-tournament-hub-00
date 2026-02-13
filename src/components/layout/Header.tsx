@@ -22,7 +22,7 @@ const Header = () => {
             <Trophy className="h-5 w-5 text-accent" />
           </div>
           <span className="font-display text-xl font-bold text-foreground">
-            Fixly
+            Mundo Exa
           </span>
         </Link>
 
