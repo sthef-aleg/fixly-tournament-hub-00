@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ZoneConfigurator from "@/components/tournament/ZoneConfigurator";
+import FormationAssistant from "@/components/tournament/FormationAssistant";
 import { 
   Trophy, Calendar, Table, GitBranch, Lock, Globe, Check, Loader2, Settings
 } from "lucide-react";
@@ -257,6 +258,13 @@ const TournamentView = () => {
           </Tabs>
         </div>
       </section>
+
+      {/* AI Formation Assistant */}
+      <FormationAssistant
+        teams={tournament.teams}
+        sport={tournament.sport}
+        tournamentName={tournament.name}
+      />
     </Layout>
   );
 };
