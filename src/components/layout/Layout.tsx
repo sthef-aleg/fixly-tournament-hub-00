@@ -14,7 +14,7 @@ const Layout = ({ children }: LayoutProps) => {
       </main>
       <footer className="border-t border-border bg-card py-6">
         <div className="container text-center text-sm text-muted-foreground">
-          <p>© 2024 Fixly. Gestión de torneos deportivos.</p>
+          <p>© 2026 Mundo Exa · Creado por SthefanyAlegre</p>
         </div>
       </footer>
     </div>
